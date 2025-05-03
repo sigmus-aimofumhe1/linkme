@@ -1,3 +1,4 @@
+import os
 import json
 import re
 import smtplib
@@ -5,30 +6,30 @@ import psycopg2
 from email.mime.text import MIMEText
 from openai import OpenAI
 from twilio.rest import Client as TwilioClient
+from dotenv import load_dotenv
 
-# CONFIGS
-XAI_API_KEY = "xai-..."  # replace with your real key
-TWILIO_SID = "AC7e2a875541c9bafa6ae6fc91ee980a0d"
-TWILIO_AUTH_TOKEN = "ea06ddaa7661e1f7e1908fa63ebd2988"
-TWILIO_PHONE = "+1234567890"  # your Twilio number
-EMAIL_USER = "eshiobomhesigmusaimofumhe04@gmail.com"
-EMAIL_PASSWORD = "Sigmu$100"
+# Load environment variables
+load_dotenv("config.env")
+
+# CONFIGS from .env
+XAI_API_KEY = os.getenv("XAI_API_KEY")
+TWILIO_SID = os.getenv("TWILIO_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE = os.getenv("TWILIO_PHONE")
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 DB_CONFIG = {
-    "dbname": "postgres",
-    "user": "postgres",
-    "password": "dydxdydx1000",
-    "host": "localhost",
-    "port": 5432
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT")
 }
 
-# OpenAI client
 client = OpenAI(api_key=XAI_API_KEY, base_url="https://api.x.ai/v1")
-
-# Twilio client
 twilio_client = TwilioClient(TWILIO_SID, TWILIO_AUTH_TOKEN)
 
-# Extract contact values (very simple regexes)
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group() if match else None
@@ -37,7 +38,6 @@ def extract_phone(text):
     match = re.search(r'(\+?\d[\d\s-]{7,})', text)
     return match.group().strip() if match else None
 
-# Email sender
 def send_email(recipient, body):
     msg = MIMEText(body)
     msg["Subject"] = "Hello from your assistant"
@@ -50,7 +50,6 @@ def send_email(recipient, body):
         server.send_message(msg)
     print("✅ Email sent to", recipient)
 
-# SMS sender
 def send_sms(recipient, body):
     twilio_client.messages.create(
         body=body,
@@ -59,7 +58,6 @@ def send_sms(recipient, body):
     )
     print("✅ SMS sent to", recipient)
 
-# Main detection and flow logic
 def detect_and_store(text):
     prompt = f"""
 Check if the following text contains:
@@ -95,16 +93,13 @@ Respond in JSON like: {{"email": true/false, "phone": true/false, "linkedin": tr
     conn.close()
     print("✅ Inserted into DB:", text)
 
-    # Optional message
     message = "Hey there! Thanks for sharing your contact info."
 
-    # Send email if present
     if result.get("email"):
         email = extract_email(text)
         if email:
             send_email(email, message)
 
-    # Send SMS if present
     if result.get("phone"):
         phone = extract_phone(text)
         if phone:
